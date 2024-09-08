@@ -1,0 +1,10 @@
+# python==3.10.0
+python-dotenv==1.0.1
+fastapi==0.113.0
+uvicorn==0.30.6
+
+langchain-core==0.2.38
+langchain-openai==0.1.23
+langsmith==0.1.116
+openai==1.44.0
+

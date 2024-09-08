@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .chat-container {
+            width: 60%;
+            margin: 0 auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f4f4f4;
+            height: 700px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .messages {
+            height: calc(100% - 50px);
+            overflow-y: auto;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+
+        .message.user {
+            background-color: #d0e7ff;
+            text-align: right;
+        }
+
+        .message.assistant {
+            background-color: #e2f0d9;
+        }
+        .message.function {
+            background-color: #ffe7d0;
+        }
+
+        .input-area {
+            display: flex;
+            position: absolute;
+            bottom: 0;
+            width: 90%;
+            padding: 10px;
+            background-color: white;
+            box-shadow: 0px -2px 10px rgba(0,0,0,0.1);
+        }
+
+        .input-area input {
+            width: 90%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .input-area button {
+            width: 10%;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .input-area button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="messages" id="messages">
+        <!-- Messages will be displayed here -->
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="何について聞きますか？">
+        <button id="sendButton">送信</button>
+    </div>
+</div>
+
+<script>
+    const messagesDiv = document.getElementById('messages');
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+
+    const messages = []
+
+    // Server-sent Eventsを利用してAIの応答を受け取る (POSTメソッド)
+    function getAIResponse(userMessage) {
+        console.log('CALL: messages: ', messages);
+        const chatParams = {
+            messages: messages,
+            max_tokens: 1000,
+            temperature: 0.0
+        };
+
+        // Fetch APIを使ったPOSTリクエスト
+        fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(chatParams)
+        }).then(async (response) => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let done = false;
+
+            // サーバーからのストリーミングデータを逐次読み込む
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', 'assistant');
+            messageDiv.innerHTML = '';
+            while (!done) {
+                const { value, done: readerDone } = await reader.read();
+                done = readerDone;
+                const chunk = decoder.decode(value, { stream: true });
+
+                // データの行ごとに処理
+                const lines = chunk.split('\n\n');
+                for (let line of lines) {
+                    console.log(line);
+                    if (line.startsWith('data: ')) {
+                        const jsonData = line.slice(6); // "data: " を除去
+                        try {
+                            const parsedData = JSON.parse(jsonData);
+                            // roleがassistantのデータのみを処理
+                            if (parsedData.role === "assistant") {
+                                if (messageDiv.innerHTML === '') {
+                                    messagesDiv.append(messageDiv);
+                                }
+                                if (parsedData.content) {
+                                    messageDiv.innerHTML += parsedData.content.replace('\n', '<br>');
+                                }
+                                // is_doneがTrueになったら終了
+                                if (parsedData.is_done === true) {
+                                    messages.push({
+                                        role: 'assistant',
+                                        content: messageDiv.innerHTML
+                                    })
+                                    return;
+                                }
+                            }
+                            if (parsedData.role === 'tool') {
+                                if (parsedData.result) {
+                                    addFunctionMessage(parsedData);
+                                }
+                            }
+                        } catch (error) {
+                            console.error("JSON parse error:", error);
+                        }
+                    }
+                }
+            }
+        }).catch((error) => {
+            console.error('Error during fetch:', error);
+        });
+    }
+
+
+    // メッセージを追加する関数
+    function addFunctionMessage(parsedData) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', 'function');
+        messageDiv.innerHTML = "関数呼び出しが行われました。<br>" + parsedData.tool_name + "(" + parsedData.tool_args + "): ->" + parsedData.result;;
+        messagesDiv.appendChild(messageDiv);
+
+        messages.push({
+            content: parsedData.result,
+            role: 'tool',
+            id: parsedData.id,
+            tool_name: parsedData.tool_name,
+            tool_args: JSON.parse(parsedData.tool_args)
+        });
+        console.log('messages after tool', messages);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    function addMessage(content, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', sender);
+        messageDiv.textContent = content;
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;  // 自動スクロール
+
+        if (sender === 'user') {
+            messages.push({
+                role: 'user',
+                content: content
+            })
+        }
+    }
+
+    // メッセージを送信する関数
+    function sendMessage() {
+        const userMessage = userInput.value.trim();
+        if (userMessage !== '') {
+            addMessage(userMessage, 'user'); // ユーザーのメッセージを表示
+            userInput.value = ''; // 入力フィールドをクリア
+
+            // AIからの応答を受け取る
+            getAIResponse(userMessage);
+        }
+    }
+
+    // 送信ボタンが押されたときの処理
+    userInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            if (event.shiftKey) {
+                // Shift + Enter で送信
+                sendMessage();
+                event.preventDefault(); // ページのリロードなどを防ぐ
+            } else {
+                // Enter で改行
+                userInput.value += '\n';
+                event.preventDefault(); // デフォルトの Enter の動作を無効にする
+            }
+        }
+    });
+
+    sendButton.addEventListener('click', (event) => {
+        sendMessage();
+        const userMessage = userInput.value;
+        event.preventDefault();
+    });
+</script>
+
+</body>
+</html>

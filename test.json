@@ -1,0 +1,40 @@
+{
+    "messages": [
+        {
+            "role": "user",
+            "content": "12*(100808 + 1080382)は幾つですか？"
+        },
+        {
+            "content": "1181190",
+            "role": "tool",
+            "id": "call_RigLX52FunFOjDF8B3HIsXDd",
+            "tool_name": "add",
+            "tool_args": "{'a': 100808, 'b': 1080382}"
+        },
+        {
+            "content": "14174280",
+            "role": "tool",
+            "id": "call_UIspxsUtiuZj4N05tSkfJxyr",
+            "tool_name": "multiply",
+            "tool_args": "{'a': 12, 'b': 1181190}"
+        },
+        {
+            "role": "user",
+            "content": "あなたの名前はなんですか？ない場合は、創作してください。"
+        },
+        {
+            "role": "user",
+            "content": "あなたの名前はなんですか？ない場合は、創作してください。"
+        },
+        {
+            "role": "user",
+            "content": "あなたの名前はなんですか？ない場合は、創作してください。"
+        },
+        {
+            "role": "user",
+            "content": "あなたの名前はなんですか？ない場合は、創作してください。"
+        }
+    ],
+    "max_tokens": 1000,
+    "temperature": 0
+}
