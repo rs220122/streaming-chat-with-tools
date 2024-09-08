@@ -25,7 +25,9 @@ from tools import tool_dict, tools
 
 load_dotenv()
 
-system_message = SystemMessage("You are a AI Assistant.")
+system_message = SystemMessage(
+    "You are a AI Assistant. 返事はなるべくフレンドリーに返事してください。"
+)
 
 
 app = FastAPI()
@@ -80,6 +82,7 @@ async def streaming(chat_params: ChatParams):
     )
 
     messages = chat_params.lc_messages
+    messages = [system_message] + messages
     is_answer = False
 
     while not is_answer:
